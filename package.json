@@ -1,0 +1,23 @@
+{
+  "name": "summer2027-internship-tracker",
+  "version": "1.0.0",
+  "description": "The torch has been passed. Use this repo to share and keep track of software, tech, CS, PM, quant internships for **Summer 2026**. The list is maintained collaboratively by Vansh and [CSCareers](https://discord.gg/cscareers)!",
+  "homepage": "https://github.com/redmac135/summer2027-internship-tracker#readme",
+  "bugs": {
+    "url": "https://github.com/redmac135/summer2027-internship-tracker/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/redmac135/summer2027-internship-tracker.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.2.1"
+  }
+}

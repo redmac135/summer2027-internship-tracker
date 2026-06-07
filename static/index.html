@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Internship Tracker</title>
+    <style>
+      body {
+        margin: 0;
+        background: #f5f7fb;
+        color: #172033;
+        font-family: Arial, sans-serif;
+      }
+
+      main {
+        margin: 0 auto;
+        max-width: 1440px;
+        padding: 28px;
+      }
+
+      h1 {
+        margin: 0 0 18px;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid #dce2ea;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(20, 30, 50, 0.08);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 1000px;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid #e7ebf0;
+        padding: 12px;
+        text-align: left;
+        vertical-align: middle;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #eef3f8;
+        color: #526071;
+        font-size: 12px;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      tr:hover td {
+        background: #f8fbfd;
+      }
+
+      a {
+        color: #0f6b8f;
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      a:hover {
+        text-decoration: underline;
+      }
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: #1f7a5c;
+      }
+
+      .check-cell,
+      .closed-cell {
+        text-align: center;
+      }
+
+      .status-dot {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #22a06b;
+      }
+
+      .status-dot.closed {
+        background: #d64545;
+      }
+
+      .muted {
+        color: #6b7788;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Internship Tracker</h1>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Company</th>
+              <th>Role</th>
+              <th>Location</th>
+              <th>Link</th>
+              <th>Date Posted</th>
+              <th>Closed</th>
+              <th>Applied</th>
+              <th>Not applicable</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      let listings = [];
+      const rows = document.getElementById("rows");
+
+      function group(listing) {
+        if (listing.not_applicable) return 2;
+        if (listing.applied) return 1;
+        return 0;
+      }
+
+      function formatDate(value) {
+        if (!value) return "";
+        const date = new Date(value * 1000);
+        if (Number.isNaN(date.getTime())) return "";
+        const day = date.getDate();
+        const suffix = day % 10 === 1 && day !== 11 ? "st" : day % 10 === 2 && day !== 12 ? "nd" : day % 10 === 3 && day !== 13 ? "rd" : "th";
+        return `${date.toLocaleString(undefined, { month: "short" })} ${day}${suffix}`;
+      }
+
+      function sortListings() {
+        listings.sort((a, b) => {
+          const groupDiff = group(a) - group(b);
+          if (groupDiff) return groupDiff;
+          return (b.date_posted || 0) - (a.date_posted || 0);
+        });
+      }
+
+      function render() {
+        sortListings();
+        rows.innerHTML = "";
+
+        for (const listing of listings) {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${escapeHtml(listing.company)}</td>
+            <td>${escapeHtml(listing.role)}</td>
+            <td>${escapeHtml(listing.location)}</td>
+            <td>${listing.link ? `<a href="${escapeAttribute(listing.link)}" target="_blank" rel="noreferrer">Apply</a>` : ""}</td>
+            <td>${formatDate(listing.date_posted)}</td>
+            <td class="closed-cell"><span class="status-dot ${listing.closed ? "closed" : ""}" title="${listing.closed ? "Closed" : "Open"}"></span></td>
+            <td class="check-cell"><input type="checkbox" data-field="applied" ${listing.applied ? "checked" : ""}></td>
+            <td class="check-cell"><input type="checkbox" data-field="not_applicable" ${listing.not_applicable ? "checked" : ""}></td>
+          `;
+
+          row.querySelectorAll("input").forEach((input) => {
+            input.addEventListener("change", async () => {
+              listing[input.dataset.field] = input.checked;
+              if (input.dataset.field === "applied" && input.checked) {
+                listing.not_applicable = false;
+              }
+              if (input.dataset.field === "not_applicable" && input.checked) {
+                listing.applied = false;
+              }
+              const saved = await save(listing);
+              listing.applied = saved.applied;
+              listing.not_applicable = saved.not_applicable;
+              render();
+            });
+          });
+
+          rows.appendChild(row);
+        }
+      }
+
+      async function save(listing) {
+        const response = await fetch(`/api/status/${encodeURIComponent(listing.id)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            applied: listing.applied,
+            not_applicable: listing.not_applicable,
+          }),
+        });
+        return response.json();
+      }
+
+      function escapeHtml(value) {
+        return String(value).replace(/[&<>"']/g, (char) => ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;",
+        })[char]);
+      }
+
+      function escapeAttribute(value) {
+        return escapeHtml(value);
+      }
+
+      fetch("/api/listings")
+        .then((response) => response.json())
+        .then((data) => {
+          listings = data;
+          render();
+        });
+    </script>
+  </body>
+</html>
